@@ -26,8 +26,8 @@ IMAGE_HEIGHT = 1024
 IMAGE_WIDTH = 1024
 
 # Step 3 : Inference settings
-# Steps of "noise reduction", reduced steps to prevent "plastic" skin smoothing, 30 compared with DPMSolverMultistepScheduler
-INFERENCE_STEPS = 30
+# Steps of "noise reduction", reduced steps to prevent "plastic" skin smoothing
+INFERENCE_STEPS = 40
 # Prompt relevance: Reduced CFG to allow more natural variation and texture, 4.0 to 6.0
 GUIDANCE_SCALE = 4.2
 
