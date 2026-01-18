@@ -1,3 +1,5 @@
+# src/main.py
+
 import torch
 from diffusers import StableDiffusionXLPipeline, EulerAncestralDiscreteScheduler
 import os
@@ -28,7 +30,15 @@ def load_pipeline(model_path):
             use_safetensors=True,
         )
         
-        # Step 4 : Configure Scheduler (Euler a)
+        # Step 4 : Configure Scheduler
+        
+        # pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+        #     pipe.scheduler.config,
+        #     use_karras_sigmas=True,
+        #     algorithm_type="dpmsolver++"
+        # )
+
+        # Note: Euler a seems better.
         pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
             pipe.scheduler.config
         )

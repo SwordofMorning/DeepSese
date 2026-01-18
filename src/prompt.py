@@ -1,16 +1,25 @@
+# src/prompt.py
+
 ##### Section I : Text to Image Prompt #####
 
 # Step 1 : Positive
 PROMPT_TEXT = (
-    # Actor
-    "japanese cosplayer girl, Raiden Shogun, Ei, "
-    "looking at viewer, selfie angle, flash photography, "
-    "purple braided hair, kimono, "
-    # Config
-    "natural skin texture, visible pores, slight skin imperfections, "
+# Actor
+    # Basic
+    "Japanese cosplayer girl , "
+    # Detail
+    "Raiden Shogun Cosplay, purple braided hair, kimono, cleavage, "
+    # Makeup
     "soft makeup, realistic eyes, "
-    "messy bedroom background, "
-    "raw photo, unedited, fujifilm color, soft focus"
+    "sweat, mole, makeup, "
+    # Action
+    "looking at viewer, selfie angle, flash photography, "
+    # Background
+    "bedroom, messy bed sheet,"
+# Real Config
+    "natural skin texture, visible pores, slight skin imperfections, "
+# Camera Config
+    "fujifilm xt4, film grain, high iso, raw style, gravure"
 )
 
 # Step 2 : Negative

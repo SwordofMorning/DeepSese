@@ -1,3 +1,5 @@
+# src/conf_text2img.py
+
 import os
 
 ##### Section I : Path Configuration #####
@@ -24,12 +26,12 @@ IMAGE_HEIGHT = 1024
 IMAGE_WIDTH = 1024
 
 # Step 3 : Inference settings
-# Number of denoising steps
-INFERENCE_STEPS = 40
-# CFG Scale (Guidance Scale)
-GUIDANCE_SCALE = 6.0
+# Steps of "noise reduction", reduced steps to prevent "plastic" skin smoothing, 30 compared with DPMSolverMultistepScheduler
+INFERENCE_STEPS = 30
+# Prompt relevance: Reduced CFG to allow more natural variation and texture, 4.0 to 6.0
+GUIDANCE_SCALE = 4.2
 
 # Step 4 : SDXL Specifics
-TARGET_SIZE = (1024, 1024)
-ORIGINAL_SIZE = (1024, 1024)
+TARGET_SIZE = (IMAGE_HEIGHT, IMAGE_WIDTH)
+ORIGINAL_SIZE = (IMAGE_HEIGHT * 2, IMAGE_WIDTH * 2)
 NEGATIVE_ORIGINAL_SIZE = (512, 512)
