@@ -1,7 +1,7 @@
 # src/prompt.py
 
 # --- Note ---
-# The order of the Prompts affects the output of SD (Simultaneous Visual Representation).
+# The order of the Prompts affects the output of SD.
 #
 # For example: 
 #
@@ -15,22 +15,24 @@
 PROMPT_TEXT = (
 # Actor
     # Basic
-    "Japanese cosplayer girl , "
+    "Young Japanese cosplayer girl , "
+    "soft cheeks, "
     # Detail
-    "Raiden Shogun Cosplay, kimono, cleavage, "
+    "Raiden Shogun Cosplay, "
+    "kimono, cleavage, "
     # Makeup
     "soft makeup, realistic eyes, "
-    "sweat, mole, "
+    "mole," # as noise
     # Action
     "looking at viewer, selfie angle, flash photography, "
     # Background
-    "bedroom, messy bed sheet,"
+    "bedroom,"
 # Skin
     "natural skin texture, visible pores, slight skin imperfections, "
 # Camera
     "fujifilm xt4, film grain, high iso, raw style, gravure"
 # Light
-    "chiaroscuro, hard shadows, dimly lit, "
+    "chiaroscuro, hard shadows, "
 )
 
 # Step 2 : Negative
@@ -43,9 +45,13 @@ NEGATIVE_PROMPT_TEXT = (
 # Skin flaws
     "perfect skin, airbrushed, photoshop, retouched, smooth skin, oil skin, "
 # Makeup
-    "heavy makeup, clown makeup, "
+    "heavy makeup, clown makeup, heavy eyeshadow, "
 # Anatomy
     "bad anatomy, bad hands, missing fingers, extra digits, "
+# Face Structure
+    "long face, sharp chin, pointed chin, sharp jawline, "
+    "gaunt, sunken cheeks, mature face, "
+    "k-pop style, plastic surgery, "
 # Quality
     "blurry, low quality, text, watermark"
 )
