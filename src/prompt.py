@@ -55,3 +55,9 @@ NEGATIVE_PROMPT_TEXT = (
 # Quality
     "blurry, low quality, text, watermark"
 )
+
+##### Section II : Image to Image Prompt (Refiner) #####
+
+# In the refinement stage, we emphasize texture keywords.
+# Usually we can reuse the PROMPT_TEXT, but explicit definition helps flexibility.
+PROMPT_REFINE_TEXT = PROMPT_TEXT
