@@ -34,9 +34,9 @@ BASE_GUIDANCE_SCALE = 7.0
 # Low CFG to allow natural skin texture
 # Strength determines how many steps we "go back". 
 # 0.3 means roughly last 30% of steps are re-done with these new settings.
-REFINE_INFERENCE_STEPS = 40
+REFINE_INFERENCE_STEPS = 50
 REFINE_GUIDANCE_SCALE = 4.0
-REFINE_STRENGTH = 0.3
+REFINE_STRENGTH = 0.4
 
 # --- SDXL Specifics ---
 TARGET_SIZE = (IMAGE_HEIGHT, IMAGE_WIDTH)

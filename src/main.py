@@ -1,9 +1,10 @@
 # src/main.py
 
 import torch
-from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, EulerAncestralDiscreteScheduler
+from diffusers import StableDiffusionXLPipeline, AutoPipelineForText2Image, AutoPipelineForImage2Image, EulerAncestralDiscreteScheduler
 import os
 import sys
+import gc
 
 # Import local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -13,49 +14,63 @@ import prompt as pt
 
 ##### Section I : Core Logic #####
 
-def load_base_pipeline(model_path):
-    print(f"[INFO] Loading SDXL Base Model from: {model_path} ...")
+def load_initial_pipeline(model_path):
+    print(f"[INFO] Loading SDXL Model from: {model_path} ...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[INFO] Device: {device}")
     
     try:
-        # Load the initial Text-to-Image pipeline
+        # FIX: Use the concrete StableDiffusionXLPipeline for loading single files (.safetensors)
+        # This is more robust than AutoPipeline.from_single_file
         pipe = StableDiffusionXLPipeline.from_single_file(
             model_path,
             torch_dtype=torch.float16 if device == "cuda" else torch.float32,
             use_safetensors=True,
         )
         
+        # Scheduler
         pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
             pipe.scheduler.config
         )
 
+        # --- Optimizations for 8GB VRAM (RTX 4060) ---
+        # 1. Offload model layers to CPU when not in use
         pipe.enable_model_cpu_offload() 
-        pipe.enable_vae_slicing()
         
-        print("[INFO] Base Pipeline loaded successfully!")
+        # 2. Slicing: Saves VRAM during attention computation
+        pipe.vae.enable_slicing()
+        
+        # 3. Tiling: CRITICAL for SDXL on 8GB VRAM. 
+        # Prevents OOM during the final VAE decode step.
+        pipe.vae.enable_tiling()
+        
+        print("[INFO] Model loaded successfully with VRAM optimizations!")
         return pipe
     except Exception as e:
         print(f"[ERROR] Failed to load model: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
-def get_refiner_pipeline(base_pipe):
-    # Create an Image-to-Image pipeline sharing the same components (UNet, VAE)
-    # This uses zero additional VRAM for model weights.
-    print("[INFO] creating Refiner Pipeline (Img2Img) from Base components...")
-    refiner_pipe = StableDiffusionXLImg2ImgPipeline.from_pipe(base_pipe)
-    return refiner_pipe
-
-def process_image_pipeline(base_pipe, refiner_pipe, index):
+def process_two_stage_generation(pipe, index):
     print(f"\n[INFO] Processing Task {index + 1}/{conf.NUM_IMAGES_TO_GENERATE} ...")
     
-    # Common Generator for reproducibility
+    # Generate a random seed
     seed = torch.randint(0, 2**32, (1,)).item()
     generator = torch.Generator("cuda").manual_seed(seed)
     
-    # --- Stage 1: Text to Image (Structure) ---
+    # ==========================================
+    # Stage 1: Text to Image (Structure)
+    # ==========================================
     print(f"   |-- [Stage 1] Generating Base Structure (CFG: {conf.BASE_GUIDANCE_SCALE})...")
+    
+    # Ensure we are in Text2Image mode
+    # Even if we loaded with StableDiffusionXLPipeline, we wrap it here to ensure consistency
+    if not isinstance(pipe, AutoPipelineForText2Image):
+        pipe = AutoPipelineForText2Image.from_pipe(pipe)
+    
     try:
-        base_image = base_pipe(
+        base_image = pipe(
             prompt=pt.PROMPT_TEXT,
             negative_prompt=pt.NEGATIVE_PROMPT_TEXT,
             height=conf.IMAGE_HEIGHT, 
@@ -70,14 +85,18 @@ def process_image_pipeline(base_pipe, refiner_pipe, index):
         ).images[0]
     except Exception as e:
         print(f"[ERROR] Stage 1 failed: {e}")
-        return None, None, None
+        return None, None, None, pipe
 
-    # --- Stage 2: Image to Image (Refinement) ---
-    print(f"   |-- [Stage 2] Refining Texture (CFG: {conf.REFINE_GUIDANCE_SCALE}, Strength: {conf.REFINE_STRENGTH})...")
+    # ==========================================
+    # Stage 2: Image to Image (Refinement)
+    # ==========================================
+    print(f"   |-- [Stage 2] Refining Texture (CFG: {conf.REFINE_GUIDANCE_SCALE}, Str: {conf.REFINE_STRENGTH})...")
+    
+    # Hot-swap to Image2Image mode (Zero memory cost, keeps loaded weights)
+    pipe = AutoPipelineForImage2Image.from_pipe(pipe)
+    
     try:
-        # We reuse the same generator to maintain noise coherence, 
-        # or create a new one for variation. Reusing is usually safer for refinement.
-        refined_image = refiner_pipe(
+        refined_image = pipe(
             prompt=pt.PROMPT_REFINE_TEXT,
             negative_prompt=pt.NEGATIVE_PROMPT_TEXT,
             image=base_image,
@@ -90,10 +109,10 @@ def process_image_pipeline(base_pipe, refiner_pipe, index):
             generator=generator
         ).images[0]
         
-        return base_image, refined_image, seed
+        return base_image, refined_image, seed, pipe
     except Exception as e:
         print(f"[ERROR] Stage 2 failed: {e}")
-        return base_image, None, seed
+        return base_image, None, seed, pipe
 
 ##### Section II : Main Execution #####
 
@@ -105,29 +124,21 @@ def main():
     if not os.path.exists(conf.OUTPUT_DIR):
         os.makedirs(conf.OUTPUT_DIR)
 
-    # 1. Load Base Pipe
-    base_pipe = load_base_pipeline(conf.MODEL_PATH)
-    
-    # 2. Create Refiner Pipe (Shares memory)
-    refiner_pipe = get_refiner_pipeline(base_pipe)
+    # 1. Load Initial Pipeline
+    pipe = load_initial_pipeline(conf.MODEL_PATH)
 
     print("========================================")
-    print(f"Batch Task: {conf.NUM_IMAGES_TO_GENERATE} images (Two-Stage)")
+    print(f"Batch Task: {conf.NUM_IMAGES_TO_GENERATE} images (Two-Stage Optimized)")
     print("========================================")
 
     for i in range(conf.NUM_IMAGES_TO_GENERATE):
-        base_img, final_img, seed = process_image_pipeline(base_pipe, refiner_pipe, i)
+        # Pass the pipe in, get the (potentially modified) pipe out
+        base_img, final_img, seed, pipe = process_two_stage_generation(pipe, i)
 
         if final_img:
-            # Save Final
             filename = f"{conf.BASE_FILENAME_PREFIX}_{i+1:02d}_final.png"
             save_path = os.path.join(conf.OUTPUT_DIR, filename)
             final_img.save(save_path)
-            
-            # Optional: Save Base for comparison
-            # base_filename = f"{conf.BASE_FILENAME_PREFIX}_{i+1:02d}_base.png"
-            # base_img.save(os.path.join(conf.OUTPUT_DIR, base_filename))
-            
             print(f"[SUCCESS] Saved: {filename} (Seed: {seed})")
         else:
             print(f"[SKIP] Failed to generate image {i+1}")
