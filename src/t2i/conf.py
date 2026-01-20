@@ -1,11 +1,11 @@
-# src/conf_text2img.py
+# src/t2i/conf.py
 
 import os
 
 ##### Section I : Path Configuration #####
 
 # Step 1 : Define base paths
-# Assuming the script is run from the project root directory
+# Assuming the script is run from the project root directory via main.py
 ROOT_DIR = os.getcwd()
 MODEL_DIR = os.path.join(ROOT_DIR, "mod")
 OUTPUT_DIR = os.path.join(ROOT_DIR, "output/txt2img")
@@ -19,6 +19,7 @@ MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
 
 # Step 1 : Output settings
 BASE_FILENAME_PREFIX = "cos"
+# Default value, can be overridden by CLI args
 NUM_IMAGES_TO_GENERATE = 10
 
 # Step 2 : Image dimensions
