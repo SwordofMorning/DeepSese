@@ -20,8 +20,7 @@ def load_initial_pipeline(model_path):
     print(f"[INFO] Device: {device}")
     
     try:
-        # FIX: Use the concrete StableDiffusionXLPipeline for loading single files (.safetensors)
-        # This is more robust than AutoPipeline.from_single_file
+        # Loading single files (.safetensors)
         pipe = StableDiffusionXLPipeline.from_single_file(
             model_path,
             torch_dtype=torch.float16 if device == "cuda" else torch.float32,
