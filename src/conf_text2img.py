@@ -25,13 +25,20 @@ NUM_IMAGES_TO_GENERATE = 10
 IMAGE_HEIGHT = 1024
 IMAGE_WIDTH = 1024
 
-# Step 3 : Inference settings
-# Steps of "noise reduction", reduced steps to prevent "plastic" skin smoothing
-INFERENCE_STEPS = 40
-# Prompt relevance: Reduced CFG to allow more natural variation and texture, 4.0 to 6.0
-GUIDANCE_SCALE = 4.2
+# --- Stage 1: Base Generation (Structure) ---
+# High CFG to force the Cosplay outfit accuracy
+BASE_INFERENCE_STEPS = 30
+BASE_GUIDANCE_SCALE = 7.0
 
-# Step 4 : SDXL Specifics
+# --- Stage 2: Refinement (Texture & Realism) ---
+# Low CFG to allow natural skin texture
+REFINE_INFERENCE_STEPS = 50
+REFINE_GUIDANCE_SCALE = 4.0
+# Strength determines how many steps we "go back", percentage of added noise. 
+# 0.4 means roughly last 40% of steps are re-done with these new settings.
+REFINE_STRENGTH = 0.4
+
+# --- SDXL Specifics ---
 TARGET_SIZE = (IMAGE_HEIGHT, IMAGE_WIDTH)
 ORIGINAL_SIZE = (IMAGE_HEIGHT * 2, IMAGE_WIDTH * 2)
 NEGATIVE_ORIGINAL_SIZE = (512, 512)
