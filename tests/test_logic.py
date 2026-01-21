@@ -3,11 +3,18 @@ import sys
 import os
 from unittest.mock import MagicMock, patch
 
-# Add src to sys.path to import modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+# --- FIX: Adjust PYTHONPATH ---
+# 1. get cwd (tests/)
+current_test_dir = os.path.dirname(os.path.abspath(__file__))
+# 2. get project dir (DeepSese/)
+project_root = os.path.dirname(current_test_dir)
 
-from sr import sr
-from conf import conf
+# 3. Add the project root directory to sys.path
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+from src.sr import sr
+from src.conf import conf
+from src.t2i import t2i
 
 class TestDeepSeseLogic(unittest.TestCase):
 
@@ -31,9 +38,10 @@ class TestDeepSeseLogic(unittest.TestCase):
         self.assertEqual(tr_x, 896)
         print("[PASS] SR Coordinates logic is valid.")
 
-    @patch('t2i.t2i.StableDiffusionXLPipeline')
-    @patch('t2i.t2i.AutoPipelineForText2Image')
-    @patch('t2i.t2i.AutoPipelineForImage2Image')
+    # FIX: Patch 路径也必须加上 'src.' 前缀，因为我们现在是从根目录加载的
+    @patch('src.t2i.t2i.StableDiffusionXLPipeline')
+    @patch('src.t2i.t2i.AutoPipelineForText2Image')
+    @patch('src.t2i.t2i.AutoPipelineForImage2Image')
     def test_pipeline_flow(self, mock_img2img, mock_txt2img, mock_sdxl):
         """
         Mock the heavy model loading and verify the code flow.
@@ -45,21 +53,31 @@ class TestDeepSeseLogic(unittest.TestCase):
         mock_sdxl.from_single_file.return_value = mock_pipe_instance
         
         # Mock image generation output
+        # pipe() returns a result object, which has .images attribute
         mock_image = MagicMock()
-        # Mocking the return structure: pipe().images[0]
-        mock_pipe_instance.return_value.images = [mock_image] 
-        
-        # Import main logic
-        from t2i import t2i
-        
+        mock_pipe_result = MagicMock()
+        mock_pipe_result.images = [mock_image]
+        mock_pipe_instance.return_value = mock_pipe_result
+
+        # Also need to mock the scheduler config access
+        mock_pipe_instance.scheduler.config = {}
+
         # Run a "fake" task
         # This will execute all logic in run_task BUT will not touch GPU
         try:
             # We override path checks since we don't have model files in CI
             with patch('os.path.exists') as mock_exists:
+                # We need exists to return True so it enters the logic
                 mock_exists.return_value = True 
-                t2i.run_task(num_images=1)
+                
+                # IMPORTANT: Mock makedirs so we don't actually create folders in CI
+                with patch('os.makedirs'):
+                    t2i.run_task(num_images=1)
+                    
         except Exception as e:
+            # Print full trace for debugging if it fails
+            import traceback
+            traceback.print_exc()
             self.fail(f"Pipeline crashed during mock run: {e}")
             
         print("[PASS] Pipeline flow executed successfully without GPU.")
