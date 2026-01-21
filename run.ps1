@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================"
-Write-Host "Starting SDXL Generation Task..."
+Write-Host "Starting DeepSese Framework..."
 Write-Host "========================================"
 
 # Check if python is available
@@ -18,9 +18,11 @@ Set-Location $ScriptDir
 # Construct the path to the main python script
 $MainScriptPath = Join-Path "src" "main.py"
 
-# Execute the python script
+# Execute the python script with all arguments passed to this ps1
+# $args contains the parameters passed to run.ps1 (e.g., --t2i --nums 10)
 try {
-    python $MainScriptPath
+    # We use & operator to execute the command and pass $args array
+    python $MainScriptPath $args
 }
 catch {
     Write-Error "An error occurred during execution."
