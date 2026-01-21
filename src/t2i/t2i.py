@@ -5,9 +5,9 @@ from diffusers import StableDiffusionXLPipeline, AutoPipelineForText2Image, Auto
 import os
 import sys
 
-# Import local modules using relative imports
-from . import conf
-from . import prompt as pt
+# Adjusted imports for new structure
+from src.conf import conf
+from src.conf import prompt as pt
 
 ##### Section I : Core Logic #####
 
@@ -49,9 +49,7 @@ def process_two_stage_generation(pipe, index, total_images):
     seed = torch.randint(0, 2**32, (1,)).item()
     generator = torch.Generator("cuda").manual_seed(seed)
     
-    # ==========================================
-    # Stage 1: Text to Image (Structure)
-    # ==========================================
+    # Stage 1: Text to Image
     print(f"   |-- [Stage 1] Generating Base Structure (CFG: {conf.BASE_GUIDANCE_SCALE})...")
     
     if not isinstance(pipe, AutoPipelineForText2Image):
@@ -75,9 +73,7 @@ def process_two_stage_generation(pipe, index, total_images):
         print(f"[ERROR] Stage 1 failed: {e}")
         return None, None, None, pipe
 
-    # ==========================================
-    # Stage 2: Image to Image (Refinement)
-    # ==========================================
+    # Stage 2: Refinement
     print(f"   |-- [Stage 2] Refining Texture (CFG: {conf.REFINE_GUIDANCE_SCALE}, Str: {conf.REFINE_STRENGTH})...")
     
     pipe = AutoPipelineForImage2Image.from_pipe(pipe)
@@ -114,10 +110,10 @@ def run_task(num_images=None):
         print(f"[ERROR] Model file not found: {conf.MODEL_PATH}")
         return
 
-    if not os.path.exists(conf.OUTPUT_DIR):
-        os.makedirs(conf.OUTPUT_DIR)
+    if not os.path.exists(conf.OUTPUT_DIR_T2I):
+        os.makedirs(conf.OUTPUT_DIR_T2I)
 
-    # 1. Load Initial Pipeline
+    # Load Initial Pipeline
     pipe = load_initial_pipeline(conf.MODEL_PATH)
 
     print("========================================")
@@ -125,11 +121,12 @@ def run_task(num_images=None):
     print("========================================")
 
     for i in range(count):
+        # Pass 0 as index for now or track manually
         base_img, final_img, seed, pipe = process_two_stage_generation(pipe, i, count)
 
         if final_img:
             filename = f"{conf.BASE_FILENAME_PREFIX}_{i+1:02d}_final.png"
-            save_path = os.path.join(conf.OUTPUT_DIR, filename)
+            save_path = os.path.join(conf.OUTPUT_DIR_T2I, filename)
             final_img.save(save_path)
             print(f"[SUCCESS] Saved: {filename} (Seed: {seed})")
         else:
