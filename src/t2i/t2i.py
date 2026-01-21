@@ -47,7 +47,8 @@ def process_two_stage_generation(pipe, index, total_images):
     
     # Generate a random seed
     seed = torch.randint(0, 2**32, (1,)).item()
-    generator = torch.Generator("cuda").manual_seed(seed)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    generator = torch.Generator(device).manual_seed(seed)
     
     # Stage 1: Text to Image
     print(f"   |-- [Stage 1] Generating Base Structure (CFG: {conf.BASE_GUIDANCE_SCALE})...")

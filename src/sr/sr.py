@@ -113,7 +113,8 @@ def process_single_image_sr(pipe, image_path, output_dir):
     if not isinstance(pipe, AutoPipelineForImage2Image):
         pipe = AutoPipelineForImage2Image.from_pipe(pipe)
 
-    generator = torch.Generator("cuda").manual_seed(42) # Fixed seed for consistency across tiles
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    generator = torch.Generator(device).manual_seed(42) # Fixed seed for consistency across tiles
 
     # 3. Process Tiles
     print("   |-- [2/4] Processing Tiles (Img2Img)...")
