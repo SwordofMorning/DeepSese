@@ -1,0 +1,25 @@
+name: Logic Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          
+      - name: Install dependencies
+        # Install only logic libs, not the heavy torch-cuda version if possible
+        # But for simplicity, we install requirements. 
+        # Note: In real CI, use --index-url to get CPU-only Torch to save time/bandwidth
+        run: |
+          pip install numpy pillow diffusers transformers accelerate
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          
+      - name: Run Logic Tests
+        run: python tests/test_logic.py

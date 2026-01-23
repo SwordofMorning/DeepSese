@@ -61,3 +61,9 @@ NEGATIVE_PROMPT_TEXT = (
 # In the refinement stage, we emphasize texture keywords.
 # Usually we can reuse the PROMPT_TEXT, but explicit definition helps flexibility.
 PROMPT_REFINE_TEXT = PROMPT_TEXT
+
+##### Section III : Super-Resolution Prompt #####
+
+# For SR, we emphasize texture even more to ensure the upscale adds detail
+# rather than smoothing things out.
+PROMPT_SR_TEXT = PROMPT_TEXT

@@ -19,9 +19,9 @@ Set-Location $ScriptDir
 $MainScriptPath = Join-Path "src" "main.py"
 
 # Execute the python script with all arguments passed to this ps1
-# $args contains the parameters passed to run.ps1 (e.g., --t2i --nums 10)
 try {
     # We use & operator to execute the command and pass $args array
+    # Example: ./run.ps1 --sr --file "xxx.png"
     python $MainScriptPath $args
 }
 catch {
