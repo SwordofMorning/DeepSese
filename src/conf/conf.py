@@ -50,6 +50,6 @@ SR_OVERLAP = 128
 
 # Step 2 : Refinement Parameters (Per Tile)
 # We use a lower strength to preserve the original structure while adding details
-SR_STRENGTH = 0.35
-SR_GUIDANCE_SCALE = 5.0
+SR_STRENGTH = 0.2
+SR_GUIDANCE_SCALE = 4.0
 SR_INFERENCE_STEPS = 40
