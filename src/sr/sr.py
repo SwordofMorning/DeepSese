@@ -20,66 +20,69 @@ def upscale_lanczos(image, target_size):
 
 def get_tile_coordinates():
     """
-    Returns a list of (name, x, y) for 4 overlapping tiles.
-    Target Size: 1920
-    Tile Size: 1024
+    Returns a list of (name, x, y, fade_sides) for 4 overlapping tiles.
+    fade_sides order: [Top, Bottom, Left, Right] - Boolean
     """
     size = conf.SR_TARGET_SIZE
     tile = conf.SR_TILE_SIZE
-    
-    # Coords are (left, top)
-    # TL: 0, 0
-    # TR: 1920 - 1024, 0
-    # BL: 0, 1920 - 1024
-    # BR: 1920 - 1024, 1920 - 1024
-    
     offset = size - tile # 896
     
+    # Define which sides should act as borders (overlap) and need fading.
+    # True = Fade this side (Internal edge)
+    # False = Keep opaque (External edge)
+    
     coords = [
-        ("TL", 0, 0),
-        ("TR", offset, 0),
-        ("BL", 0, offset),
-        ("BR", offset, offset)
+        # TL: Fade Bottom, Right
+        ("TL", 0, 0, {"top": False, "bottom": True, "left": False, "right": True}),
+        
+        # TR: Fade Bottom, Left
+        ("TR", offset, 0, {"top": False, "bottom": True, "left": True, "right": False}),
+        
+        # BL: Fade Top, Right
+        ("BL", 0, offset, {"top": True, "bottom": False, "left": False, "right": True}),
+        
+        # BR: Fade Top, Left
+        ("BR", offset, offset, {"top": True, "bottom": False, "left": True, "right": False})
     ]
     return coords
 
-def create_gradient_mask(tile_size, overlap):
+def create_tile_mask(tile_size, overlap, sides):
     """
-    Creates a weight mask for blending. 
-    Simple approach: 1 in the center, linear fade to 0 at edges.
-    However, for strict 4-tile grid, we can just blend the overlapping strips.
-    
-    To implement a robust weighted merge, we create a weight map for the whole 1920x1920 canvas.
+    Creates a smart weight mask.
+    sides: dict {"top": bool, "bottom": bool, ...}
     """
-    # Create a 2D gaussian-like or trapezoidal mask for a single tile
-    # For this specific 4-tile layout, a simple "feathered edge" mask is sufficient.
+    # Start with a mask of all 1.0
+    mask = np.ones((tile_size, tile_size), dtype=np.float32)
     
-    # Let's use a standard trapezoid fade (keeps center 100% original, fades edges)
-    # 0 -> overlap : fade 0 to 1
-    # overlap -> size - overlap : keep 1
-    # size - overlap -> size : fade 1 to 0
+    # Generate a linear gradient 0 -> 1
+    # We use explicit indices to ensure robust fading
+    fade_ramp = np.linspace(0, 1, overlap)
     
-    x = np.linspace(0, 1, tile_size)
-    y = np.linspace(0, 1, tile_size)
+    # Apply fade to specific sides if requested
     
-    # Define fade function
-    def fade(arr):
-        # Fade in first 'overlap' pixels
-        fade_len = overlap
-        result = np.ones_like(arr)
-        
-        # Left/Top edge fade
-        result[:fade_len] = np.linspace(0, 1, fade_len)
-        # Right/Bottom edge fade
-        result[-fade_len:] = np.linspace(1, 0, fade_len)
-        return result
+    if sides["top"]:
+        # Fade the top rows (0 to overlap) from 0 to 1
+        # We multiply the existing values to support corners (where two fades meet)
+        for i in range(overlap):
+            mask[i, :] *= fade_ramp[i]
+            
+    if sides["bottom"]:
+        # Fade the bottom rows from 1 to 0
+        for i in range(overlap):
+            mask[tile_size - 1 - i, :] *= fade_ramp[i]
+            
+    if sides["left"]:
+        # Fade the left columns from 0 to 1
+        for i in range(overlap):
+            mask[:, i] *= fade_ramp[i]
+            
+    if sides["right"]:
+        # Fade the right columns from 1 to 0
+        for i in range(overlap):
+            mask[:, tile_size - 1 - i] *= fade_ramp[i]
 
-    mask_x = fade(np.arange(tile_size))
-    mask_y = fade(np.arange(tile_size))
-    
-    # Outer product to make 2D mask
-    mask_2d = np.outer(mask_y, mask_x)
-    return mask_2d
+    # Add an extra channel dimension for broadcasting: (H, W, 1)
+    return mask[:, :, np.newaxis]
 
 ##### Section II : Core SR Logic #####
 
@@ -100,32 +103,33 @@ def process_single_image_sr(pipe, image_path, output_dir):
     # 2. Prepare for Tiling
     coords = get_tile_coordinates()
     
-    # Prepare canvas for weighted sum
-    # Shape: (H, W, 3)
+    # Prepare canvas
     canvas = np.zeros((conf.SR_TARGET_SIZE, conf.SR_TARGET_SIZE, 3), dtype=np.float32)
-    weight_map = np.zeros((conf.SR_TARGET_SIZE, conf.SR_TARGET_SIZE), dtype=np.float32)
+    weight_map = np.zeros((conf.SR_TARGET_SIZE, conf.SR_TARGET_SIZE, 1), dtype=np.float32)
     
-    tile_mask = create_gradient_mask(conf.SR_TILE_SIZE, conf.SR_OVERLAP)
-    # Expand mask to 3 channels for image multiplication: (H, W, 1)
-    tile_mask_3d = tile_mask[:, :, np.newaxis]
-
     # Ensure pipe is in Img2Img mode
     if not isinstance(pipe, AutoPipelineForImage2Image):
         pipe = AutoPipelineForImage2Image.from_pipe(pipe)
 
+    # Auto-detect device (Fix for CI/CD compatibility)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    generator = torch.Generator(device).manual_seed(42) # Fixed seed for consistency across tiles
+    generator = torch.Generator(device).manual_seed(42)
 
     # 3. Process Tiles
     print("   |-- [2/4] Processing Tiles (Img2Img)...")
-    for name, x, y in coords:
+    for name, x, y, sides in coords:
         print(f"       > Tile {name} at ({x}, {y})...")
         
         # Crop
         box = (x, y, x + conf.SR_TILE_SIZE, y + conf.SR_TILE_SIZE)
         tile_img = upscaled_img.crop(box)
         
+        # Generate Mask for this specific tile position
+        tile_mask_3d = create_tile_mask(conf.SR_TILE_SIZE, conf.SR_OVERLAP, sides)
+        
         # Img2Img Refinement
+        # [FIX] We Force original_size to match target_size (1024)
+        # This prevents SDXL from shrinking the content/adding black borders
         refined_tile = pipe(
             prompt=pt.PROMPT_SR_TEXT,
             negative_prompt=pt.NEGATIVE_PROMPT_TEXT,
@@ -133,27 +137,29 @@ def process_single_image_sr(pipe, image_path, output_dir):
             strength=conf.SR_STRENGTH,
             guidance_scale=conf.SR_GUIDANCE_SCALE,
             num_inference_steps=conf.SR_INFERENCE_STEPS,
-            target_size=(conf.SR_TILE_SIZE, conf.SR_TILE_SIZE), # 1024
-            original_size=conf.ORIGINAL_SIZE, # High res assumption
+            target_size=(conf.SR_TILE_SIZE, conf.SR_TILE_SIZE), 
+            original_size=(conf.SR_TILE_SIZE, conf.SR_TILE_SIZE), # FIX: Do not use 2048 here
             negative_original_size=conf.NEGATIVE_ORIGINAL_SIZE,
             generator=generator,
             output_type="pil"
         ).images[0]
         
-        # Convert to numpy
         refined_np = np.array(refined_tile).astype(np.float32)
         
-        # Add to canvas (weighted)
+        # Add to canvas
+        # Note: tile_mask_3d is (1024, 1024, 1), implicit broadcast works for refined_np (1024, 1024, 3)
         canvas[y:y+conf.SR_TILE_SIZE, x:x+conf.SR_TILE_SIZE] += refined_np * tile_mask_3d
-        weight_map[y:y+conf.SR_TILE_SIZE, x:x+conf.SR_TILE_SIZE] += tile_mask
+        
+        # Accumulate weights (squeeze the last dim for weight map if needed, or keep 3d)
+        # Here we keep weight_map as (H, W, 1) to divide easily
+        weight_map[y:y+conf.SR_TILE_SIZE, x:x+conf.SR_TILE_SIZE] += tile_mask_3d
         
     # 4. Merge
     print("   |-- [3/4] Merging Tiles...")
-    # Avoid division by zero
+    # Normalize
     weight_map = np.maximum(weight_map, 1e-5)
-    weight_map_3d = weight_map[:, :, np.newaxis]
+    final_np = canvas / weight_map
     
-    final_np = canvas / weight_map_3d
     final_np = np.clip(final_np, 0, 255).astype(np.uint8)
     final_img = Image.fromarray(final_np)
     
@@ -173,7 +179,7 @@ def run_task(file_path=None, folder_path=None):
         print("[ERROR] SR Task requires --file or --folder argument.")
         return
 
-    # Load Model (Reusing logic from t2i)
+    # Load Model
     pipe = t2i.load_initial_pipeline(conf.MODEL_PATH)
     
     targets = []

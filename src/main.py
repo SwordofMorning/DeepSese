@@ -4,6 +4,24 @@ import argparse
 import sys
 import os
 
+def setup_env():
+    """
+    Ensure the project root is in sys.path so that absolute imports
+    like 'from src.conf import ...' work correctly.
+    """
+    # Get the directory where main.py is located (e.g., .../DeepSese/src)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Get the parent directory (Project Root, e.g., .../DeepSese)
+    project_root = os.path.dirname(current_dir)
+    
+    # Add project root to sys.path if not present
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+# Apply environment setup immediately
+setup_env()
+
 def main():
     # Initialize Argument Parser
     parser = argparse.ArgumentParser(description="DeepSese Image Generation Framework")
@@ -19,10 +37,11 @@ def main():
     args = parser.parse_args()
 
     # Dispatch Logic
+    # Note: Now we use absolute imports (src.xxx) to be consistent and safe
     if args.t2i:
         print("[MAIN] Mode selected: Text-to-Image (T2I)")
         try:
-            from t2i import t2i
+            from src.t2i import t2i
             t2i.run_task(num_images=args.nums)
         except ImportError as e:
             print(f"[ERROR] Failed to import T2I module: {e}")
@@ -33,7 +52,7 @@ def main():
     elif args.sr:
         print("[MAIN] Mode selected: Super-Resolution (SR)")
         try:
-            from sr import sr
+            from src.sr import sr
             sr.run_task(file_path=args.file, folder_path=args.folder)
         except ImportError as e:
             print(f"[ERROR] Failed to import SR module: {e}")
