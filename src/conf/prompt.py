@@ -16,23 +16,23 @@ PROMPT_TEXT = (
 # Actor
     # Basic
     "Young Japanese cosplayer girl , "
-    "soft cheeks, "
+    # "soft cheeks, "
     # Detail
     "Raiden Shogun Cosplay, "
     "kimono, cleavage, "
     # Makeup
     "soft makeup, realistic eyes, "
-    "mole," # as noise
+    "mole, sweat, " # as noise
     # Action
     "looking at viewer, selfie angle, flash photography, "
     # Background
-    "bedroom,"
+    "bedroom, messy sheets, "
 # Skin
-    "natural skin texture, visible pores, slight skin imperfections, "
+    "natural skin, visible pores, slight skin imperfections, "
 # Camera
     "fujifilm xt4, film grain, high iso, raw style, gravure"
 # Light
-    "chiaroscuro, hard shadows, "
+    "chiaroscuro, hard shadows"
 )
 
 # Step 2 : Negative
@@ -66,4 +66,21 @@ PROMPT_REFINE_TEXT = PROMPT_TEXT
 
 # For SR, we emphasize texture even more to ensure the upscale adds detail
 # rather than smoothing things out.
-PROMPT_SR_TEXT = PROMPT_TEXT
+PROMPT_SR_TEXT = (
+# Actor
+    # Basic
+    "Young Japanese cosplayer girl , "
+    # Detail
+    "Raiden Shogun Cosplay, "
+    "kimono, cleavage, "
+    # Makeup
+    "soft makeup, realistic eyes, "
+    # Background
+    "bedroom, messy sheets, "
+# Skin
+    "natural skin texture, visible pores, slight skin imperfections, "
+# Camera
+    "fujifilm xt4, film grain, high iso, raw style, gravure"
+# Light
+    "chiaroscuro, hard shadows"
+)
